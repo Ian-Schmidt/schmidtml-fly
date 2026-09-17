@@ -1,0 +1,22 @@
+{
+  "encoder": "intfloat/multilingual-e5-small",
+  "encode_batch": 64,
+  "test_frac": 0.2,
+  "paths": {
+    "data": "data",
+    "cache": "cache",
+    "viz": "viz/data",
+    "runs": "runs",
+    "docs": "docs",
+    "levels": "levels"
+  },
+  "stages": [
+    {"key": "base", "title": "База: математика, Python, Git, Linux", "label": "База"},
+    {"key": "classic", "title": "Классический ML", "label": "Classic ML"},
+    {"key": "dl", "title": "Deep Learning", "label": "DL"},
+    {"key": "nlp", "title": "NLP и LLM", "label": "NLP"},
+    {"key": "recsys_ts", "title": "Рекомендательные системы и временные ряды", "label": "RecSys + TS"},
+    {"key": "mlops", "title": "MLOps и инфраструктура", "label": "MLOps"},
+    {"key": "cv", "title": "Компьютерное зрение", "label": "CV"}
+  ]
+}

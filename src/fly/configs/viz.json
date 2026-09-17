@@ -1,0 +1,10 @@
+{
+  "palette": {
+    "bg": "#141413", "card": "#1e1e1c", "line": "#33332f", "ink": "#f4f4f2", "ink2": "#c3c2b7", "mute": "#8f8e86",
+    "blue": "#3987e5", "blue_deep": "#22385a", "blue_pale": "#cfe0f5"
+  },
+  "titles": {"quiz": "Уровень 1 · тесты сайта", "interview": "Уровень 2 · вопросы собеседований"},
+  "voxel_nm": [4, 4, 40],
+  "export": {"run": "runs/quiz", "n": 4, "split": "test"},
+  "matrix": {"bins": 600, "out": "docs/connectome-matrix.png", "min_label_frac": 0.025, "min_share": 0.005}
+}

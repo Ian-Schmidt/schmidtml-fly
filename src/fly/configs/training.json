@@ -1,0 +1,15 @@
+{
+  "experiment": "schmidtml-fly",
+  "tracking_uri": "sqlite:///mlflow.db",
+  "probe": 8,
+  "active_rate": 0.05,
+  "train": {"task": "quiz", "epochs": 30, "batch": 16, "lr": 0.01, "senses": "smell", "seed": 0},
+  "continual": {"replay": 0.0, "epochs": 3, "batch": 16, "lr": 0.01, "senses": "smell", "seed": 0},
+  "baselines": {
+    "lr": 0.01,
+    "bilinear_epochs": 300,
+    "input_steps": 400,
+    "input_decays": [0.003, 0.01, 0.03, 0.1, 0.3],
+    "input_val_frac": 0.2
+  }
+}

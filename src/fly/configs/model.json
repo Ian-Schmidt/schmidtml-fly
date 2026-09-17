@@ -1,0 +1,29 @@
+{
+  "min_syn": 5,
+  "steps": 32,
+  "answer_at": 12,
+  "read_last": 6,
+  "alpha": 0.5,
+  "gain": 5.0,
+  "emb_dim": 384,
+  "senses": {
+    "smell": {"cell_class": "olfactory", "by_type": true},
+    "sight": {"cell_class": "visual", "by_type": false},
+    "touch": {"cell_class": "mechanosensory", "by_type": true},
+    "taste": {"cell_class": "gustatory", "by_type": true}
+  },
+  "classes": [
+    {"key": "orn", "label": "Обонятельные рецепторы — вход", "color": "#ffb347", "column": "cell_class", "equals": "olfactory"},
+    {"key": "pn", "label": "Проекционные нейроны", "color": "#ff7b54", "column": "cell_class", "equals": "ALPN"},
+    {"key": "kc", "label": "Клетки Кеньона — память", "color": "#ff5da2", "column": "cell_class", "equals": "Kenyon_Cell"},
+    {"key": "mbon", "label": "Выходы грибовидного тела", "color": "#c77dff", "column": "cell_type", "startswith": "MBON"},
+    {"key": "dan", "label": "Дофаминовые — награда", "color": "#ffd166", "column": "cell_class", "equals": "DAN"},
+    {"key": "dn", "label": "Нисходящие — выход в тело", "color": "#4f8cff", "column": "super_class", "equals": "descending"},
+    {"key": "central", "label": "Центральный мозг", "color": "#7aa2c8", "column": "super_class", "equals": "central"},
+    {"key": "optic", "label": "Зрительные доли", "color": "#2ec4b6", "column": "super_class",
+     "isin": ["optic", "visual_projection", "visual_centrifugal"]},
+    {"key": "sensory", "label": "Другие органы чувств", "color": "#9aa5b1", "column": "super_class",
+     "isin": ["sensory", "sensory_ascending"]},
+    {"key": "other", "label": "Прочие", "color": "#56627a"}
+  ]
+}
