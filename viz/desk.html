@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нейромуха за столом</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; height:100%; background:#140e2a; overflow:hidden; color:#cfe0ff;
+    font-family:"Press Start 2P", ui-monospace, Menlo, monospace; }
+  #scene { position:fixed; inset:0; width:100vw; height:100vh; display:block; image-rendering:pixelated; }
+  .hud { position:fixed; pointer-events:none; }
+  body.clean .hud { display:none; }
+  #replay { left:34px; bottom:30px; width:min(560px, 62vw); background:rgba(9,12,24,.84);
+    border:1px solid rgba(120,170,255,.22); padding:16px 20px 14px; font-size:11px; line-height:1.8; }
+  #replay .head { display:flex; justify-content:space-between; color:#8fb0ff; }
+  #replay .head b { border-left:3px solid #6fd3ff; padding-left:10px; font-weight:normal; }
+  #replay .row { display:flex; gap:18px; align-items:flex-end; margin-top:10px; }
+  #big { font-size:30px; color:#e6efff; line-height:1.1; }
+  #big small { display:block; font-size:9px; color:#7f8fb5; margin-top:8px; }
+  #spark { flex:1; height:56px; }
+  #sub { color:#6f7fa6; font-size:8px; margin-top:12px; }
+  #help { top:30px; right:34px; font-size:8px; color:#6f7fa6; text-align:right; line-height:2; }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; color:#8fa0c8; font-size:12px; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="loading">LOADING FLY BRAIN…</div>
+<div class="hud" id="help">SPACE пауза · ←→ вопрос · C камера<br>B голограмма · H интерфейс</div>
+<div class="hud" id="replay">
+  <div class="head"><b>NEURAL REPLAY</b><span id="clock">0.00 S</span></div>
+  <div class="row"><div id="big">0<small>ACTIVE NEURONS</small></div><canvas id="spark" width="300" height="56"></canvas></div>
+  <div id="sub"></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { load, brainCloud, Player, LETTERS } from "./replay.js";
+import { buildFly, animateFly, std, neon, limb } from "./fly-model.js";
+
+const params = new URLSearchParams(location.search);
+const RUN = params.get("run") || "quiz";
+const PIXEL = Math.max(1, +(params.get("pixel") || 2));   // во сколько раз «крупнее» пиксели, 1 — без пикселизации
+if (params.has("clean")) document.body.classList.add("clean");
+const $ = (id) => document.getElementById(id);
+
+let data;
+try {
+  data = await load(RUN);
+} catch (e) {
+  $("loading").textContent = `Нет данных ${e.message}. Сначала: uv run python export_viz.py --run runs/${RUN}`;
+  throw e;
+}
+$("loading").remove();
+const { run, brain, N } = data;
+const T = run.steps, K = run.k;
+const player = new Player(run, { speed: +(params.get("speed") || 6), q: +(params.get("q") || 0) });
+const classIndex = (key) => brain.classes.findIndex((c) => c.key === key);
+const ORN = classIndex("orn"), DN = classIndex("dn");
+$("sub").textContent = `${N.toLocaleString("en-US")} NEURONS · 2.7M CONNECTIONS · FLYWIRE V783`;
+
+// детерминированный генератор: город и щетинки одинаковые при каждой загрузке
+let seed = 7;
+const rng = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const rnd = (a, b) => a + rng() * (b - a);
+const V = THREE.Vector3;
+
+// --- рендер и сцена ---
+const renderer = new THREE.WebGLRenderer({ canvas: $("scene"), antialias: false });
+renderer.setPixelRatio(1);
+const scene = new THREE.Scene();
+const sky = document.createElement("canvas");
+sky.width = 2; sky.height = 256;
+{
+  const g = sky.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, "#07050f"); gr.addColorStop(0.55, "#1a1034"); gr.addColorStop(1, "#3b1f5e");
+  g.fillStyle = gr; g.fillRect(0, 0, 2, 256);
+}
+scene.background = new THREE.CanvasTexture(sky);
+scene.background.colorSpace = THREE.SRGBColorSpace;
+scene.fog = new THREE.Fog(0x2a1850, 70, 240);   // дальние дома тонут в фиолетовой дымке
+const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.1, 400);
+
+function box(w, h, d, mat, x, y, z, parent = scene) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  parent.add(m);
+  return m;
+}
+
+scene.add(new THREE.AmbientLight(0x6b5cb0, 1.4));
+const moon = new THREE.DirectionalLight(0x8d7dff, 1.6);
+moon.position.set(-10, 30, -40);
+scene.add(moon);
+const screenLight = new THREE.PointLight(0x86b4ff, 90, 32, 1.2);
+screenLight.position.set(6, 5, 1);
+scene.add(screenLight);
+const deskGlow = new THREE.PointLight(0x2de2d0, 35, 18, 1.2);
+deskGlow.position.set(-2, 1, 7);
+scene.add(deskGlow);
+
+// --- город за окном ---
+function windowsTexture() {
+  const c = document.createElement("canvas");
+  c.width = 32; c.height = 64;
+  const g = c.getContext("2d");
+  g.fillStyle = "#120d24";
+  g.fillRect(0, 0, 32, 64);
+  const colors = ["#ffd27a", "#8fd8ff", "#ff7ad0", "#b7a6ff"];
+  for (let y = 2; y < 64; y += 4) for (let x = 2; x < 32; x += 4) {
+    if (rng() < 0.2) { g.fillStyle = colors[(rng() * colors.length) | 0]; g.fillRect(x, y, 2, 2); }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const windows = windowsTexture();
+for (let i = 0; i < 160; i++) {
+  const w = rnd(10, 28), d = rnd(10, 24), h = rnd(10, 45);   // ниже верха окна, чтобы было видно небо
+  const tex = windows.clone();
+  tex.repeat.set(w / 4, h / 6);   // окна мелкие: ~0,5 единицы сцены на окно
+  tex.offset.set(rng(), rng());
+  box(w, h, d, new THREE.MeshBasicMaterial({ map: tex }), rnd(-260, 260), h / 2 - 14, rnd(-260, -90));
+}
+
+const DROPS = 700, rain = new Float32Array(DROPS * 6);
+for (let i = 0; i < DROPS; i++) {
+  const x = rnd(-80, 80), y = rnd(-14, 45), z = rnd(-46, -17);
+  rain.set([x, y, z, x - 0.25, y - 1.6, z], i * 6);
+}
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute("position", new THREE.BufferAttribute(rain, 3));
+scene.add(new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x7d86ff, transparent: true, opacity: 0.35 })));
+
+// --- комната: стена с окном, пол, стол ---
+const wall = std(0x1d1638), frame = std(0x120e24);
+box(170, 13, 1, wall, 0, -7.5, -15);
+box(170, 17, 1, wall, 0, 36.5, -15);
+box(50, 29, 1, wall, -58, 13.5, -15);
+box(50, 29, 1, wall, 58, 13.5, -15);
+for (const x of [-11, 11]) box(0.7, 29, 0.8, frame, x, 13.5, -15);
+box(66, 0.7, 0.8, frame, 0, 13.5, -15);
+box(66, 0.9, 2.5, frame, 0, -1, -14);
+box(170, 1, 60, std(0x120d22), 0, -14.5, 12);
+
+const deskMat = std(0x2a2046), legMat = std(0x3a2d5e);
+box(32, 0.8, 13, deskMat, 1, -0.4, -1);
+box(32, 0.14, 0.14, neon(0x3ff0e0), 1, 0.02, 5.5);
+box(0.14, 0.14, 13, neon(0xff3fa6), -15, 0.02, -1);
+for (const [x, z] of [[-14, 4.6], [16, 4.6], [-14, -6.6], [16, -6.6]]) box(0.7, 14, 0.7, legMat, x, -7.4, z);
+box(0.12, 14, 0.12, neon(0xff3fa6), -13.6, -7.4, 5.0);
+
+// --- монитор с тестом ---
+const monitor = new THREE.Group();
+monitor.position.set(9.5, 0, -2.5);
+monitor.rotation.y = -1.12;
+scene.add(monitor);
+const caseMat = std(0x151226);
+box(12.6, 7.7, 0.5, caseMat, 0, 5.2, 0, monitor);
+box(1, 1.5, 0.5, caseMat, 0, 0.75, -0.3, monitor);
+box(4, 0.2, 2.5, caseMat, 0, 0.1, -0.2, monitor);
+box(12.6, 0.1, 0.1, neon(0x3fb8ff), 0, 1.33, 0.3, monitor);
+const screenCanvas = document.createElement("canvas");
+screenCanvas.width = 1280; screenCanvas.height = 780;
+const screenTex = new THREE.CanvasTexture(screenCanvas);
+screenTex.colorSpace = THREE.SRGBColorSpace;
+screenTex.anisotropy = 4;
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(12, 7.3), new THREE.MeshBasicMaterial({ map: screenTex }));
+screen.position.set(0, 5.2, 0.26);
+monitor.add(screen);
+
+// клавиатура и кружка
+const keysCanvas = document.createElement("canvas");
+keysCanvas.width = 160; keysCanvas.height = 56;
+{
+  const g = keysCanvas.getContext("2d");
+  g.fillStyle = "#161129"; g.fillRect(0, 0, 160, 56);
+  for (let y = 3; y < 53; y += 10) for (let x = 3; x < 157; x += 10) {
+    g.fillStyle = rng() < 0.06 ? "#3ff0e0" : "#2c2450"; g.fillRect(x, y, 8, 8);
+  }
+}
+const keysTex = new THREE.CanvasTexture(keysCanvas);
+keysTex.magFilter = THREE.NearestFilter;
+keysTex.colorSpace = THREE.SRGBColorSpace;
+keysTex.center.set(0.5, 0.5);
+keysTex.rotation = Math.PI / 2;
+const kbSide = std(0x1b1532);
+const keyboard = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.3, 8),
+  [kbSide, kbSide, new THREE.MeshStandardMaterial({ map: keysTex, roughness: 0.9 }), kbSide, kbSide, kbSide]);
+keyboard.position.set(4.6, 0.15, -0.6);
+keyboard.rotation.y = 0.18;
+scene.add(keyboard);
+const mugMat = std(0x4b2a6e);
+const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.8, 1.9, 8), mugMat);
+mug.position.set(6.5, 0.95, 4.2);
+scene.add(mug);
+const handle = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.13, 5, 8), mugMat);
+handle.position.set(0, 0, 0.95);
+handle.rotation.y = Math.PI / 2;
+mug.add(handle);
+
+// --- муха (модель и её анимация — в fly-model.js) ---
+const fly = buildFly();
+fly.fly.position.set(-1.5, 0, 0.5);
+fly.fly.rotation.y = 0.18;   // смотрит на монитор
+scene.add(fly.fly);
+
+// --- голограмма мозга над головой ---
+const holo = new THREE.Group();
+holo.position.set(-5.2, 8.6, 1.8);   // над брюшком, чтобы не закрывать монитор
+scene.add(holo);
+// 138 тыс. точек в маленьком объёме: мелкие точки и обычное смешивание, иначе облако сливается в белое пятно
+const cloud = brainCloud(data, { unit: 0.018, base: 0.08, additive: false });
+cloud.points.scale.setScalar(0.0065);    // 720 мкм → ~4,7 единицы сцены
+holo.add(cloud.points);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.05, 4, 48), neon(0x46e6ff));
+ring.rotation.x = Math.PI / 2;
+ring.position.y = -1.0;
+holo.add(ring);
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 0.5, 2.2, 24, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x46e6ff, transparent: true, opacity: 0.07, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+beam.position.y = -2.1;
+holo.add(beam);
+holo.visible = !params.has("noholo");
+
+// --- экран монитора ---
+const sctx = screenCanvas.getContext("2d");
+const FONT = "Inter, system-ui, -apple-system, sans-serif";
+function wrap(g, text, maxW, maxLines) {
+  // формулы из банка вопросов («$n$-грамм») монитор не рендерит — показываем без долларов
+  const words = text.replace(/\$/g, "").replace(/\s+/g, " ").trim().split(" ");
+  const lines = [];
+  let line = "";
+  for (let i = 0; i < words.length; i++) {
+    const t = line ? `${line} ${words[i]}` : words[i];
+    if (g.measureText(t).width <= maxW || !line) { line = t; continue; }
+    lines.push(line);
+    line = words[i];
+    if (lines.length === maxLines) { lines[maxLines - 1] += " …"; return lines; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function drawScreen() {
+  const g = sctx, W = 1280, H = 780, it = player.item, reveal = player.phase === "reveal";
+  g.fillStyle = "#0a0f1f"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#121a33"; g.fillRect(0, 0, W, 60);
+  g.textBaseline = "middle";
+  g.font = `600 26px ${FONT}`;
+  g.fillStyle = "#7fa8ff"; g.fillText("schmidtml · тест", 32, 31);
+  g.textAlign = "right"; g.fillStyle = "#8a94a6";
+  g.fillText(`${it.topic} · ${player.qi + 1}/${run.questions.length}`, W - 32, 31);
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+
+  // шрифты крупные: монитор занимает треть кадра, а сцена ещё и пикселизирована
+  g.font = `700 46px ${FONT}`; g.fillStyle = "#e8edf5";
+  const qLines = wrap(g, it.q, W - 64, 3);
+  qLines.forEach((l, i) => g.fillText(l, 32, 124 + i * 56));
+  let y = 124 + qLines.length * 56 - 16;
+  const textW = W - 64 - 190;
+  it.options.forEach((opt, i) => {
+    const now = !reveal && player.phase !== "gap" && i === player.k;
+    const chosen = reveal && i === it.chosen, ok = reveal && it.answer.includes(i);
+    g.beginPath(); g.roundRect(32, y, W - 64, 104, 14);
+    g.fillStyle = chosen ? "#16264a" : "#111831"; g.fill();
+    g.lineWidth = chosen || now ? 5 : 2;
+    g.strokeStyle = chosen ? (it.correct ? "#3ecf8e" : "#ff5d6c") : now ? "#4f8cff" : "#1f2a48";
+    g.stroke();
+    g.font = `700 34px ${FONT}`; g.fillStyle = "#4f8cff"; g.fillText(LETTERS[i], 58, y + 46);
+    g.font = `500 30px ${FONT}`; g.fillStyle = "#dbe3f0";
+    wrap(g, opt, textW, 2).forEach((l, j) => g.fillText(l, 108, y + 42 + j * 34));
+    if (reveal) {
+      g.textAlign = "right"; g.font = `700 30px ${FONT}`; g.fillStyle = ok ? "#3ecf8e" : "#8a94a6";
+      g.fillText(`${Math.round(it.probs[i] * 100)}%${ok ? " ✓" : ""}`, W - 56, y + 46);
+      g.textAlign = "left";
+    }
+    g.fillStyle = "#1c2542"; g.fillRect(108, y + 88, textW, 7);
+    g.fillStyle = "#4f8cff"; g.fillRect(108, y + 88, textW * player.bar(i), 7);
+    y += 112;
+  });
+  g.font = `500 26px ${FONT}`;
+  g.fillStyle = reveal ? (it.correct ? "#3ecf8e" : "#ff5d6c") : "#8a94a6";
+  g.fillText(player.status, 32, H - 12);
+  screenTex.needsUpdate = true;
+}
+
+// --- панель NEURAL REPLAY ---
+const spark = $("spark").getContext("2d");
+const history = new Float32Array(T);
+let peak = 1;
+function drawReplay(active) {
+  if (player.phase === "sniff") history[Math.floor(player.s)] = active;
+  peak = Math.max(peak, active);
+  $("big").firstChild.nodeValue = active >= 1000 ? `${(active / 1000).toFixed(1)}K` : `${active}`;
+  const step = player.phase === "sniff" ? player.s : T - 1;
+  $("clock").textContent = `${(step * 0.005).toFixed(2)} S · ${LETTERS[player.phase === "reveal" ? player.item.chosen : player.k]}`;
+  const w = 300 / T;
+  spark.clearRect(0, 0, 300, 56);
+  for (let t = 0; t < T; t++) {
+    const h = (history[t] / peak) * 52;
+    spark.fillStyle = t === Math.floor(step) ? "#e6efff" : t >= run.answerAt ? "#4f8cff" : "#2c3a66";
+    spark.fillRect(t * w, 56 - h, w - 1, h);
+  }
+}
+
+// --- камера: несколько планов, C переключает ---
+const SHOTS = [
+  { pos: [-13, 8.5, 15], look: [3, 3.5, -1] },     // общий план, как на референсе
+  { pos: [-6.5, 6.5, 6.5], look: [8.5, 4.6, -2.5] }, // из-за плеча на экран
+  { pos: [0.5, 9.2, 10.5], look: [-5.2, 8.4, 1.8] }, // голограмма мозга (висит над брюшком)
+  { pos: [7.5, 3.8, 5.5], look: [-1, 3, 0.5] },      // муха крупно спереди
+];
+let shot = Math.min(+(params.get("shot") || 0), SHOTS.length - 1);
+const camPos = new V(...SHOTS[shot].pos), camLook = new V(...SHOTS[shot].look);
+
+addEventListener("keydown", (e) => {
+  if (e.code === "Space") player.paused = !player.paused;
+  else if (e.code === "ArrowRight") player.next(1);
+  else if (e.code === "ArrowLeft") player.next(-1);
+  else if (e.code === "KeyH") document.body.classList.toggle("clean");
+  else if (e.code === "KeyB") holo.visible = !holo.visible;
+  else if (e.code === "KeyC") shot = (shot + 1) % SHOTS.length;
+});
+function resize() {
+  renderer.setSize(Math.round(innerWidth / PIXEL), Math.round(innerHeight / PIXEL), false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  cloud.material.uniforms.scale.value = innerHeight / PIXEL / 2;
+}
+addEventListener("resize", resize);
+resize();
+
+const clock = new THREE.Clock();
+let time = 0, pitch = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  time += dt;
+  player.tick(dt);
+  if (player.changed) { player.changed = false; cloud.clear(); history.fill(0); }
+  const active = cloud.update(player.target());
+  const orn = cloud.mean[ORN] || 0, dn = cloud.mean[DN] || 0;
+
+  // муха живёт по данным: усики — обонятельные рецепторы, крылья — нисходящие нейроны
+  animateFly(fly, { orn, dn, time });
+  const look = player.phase === "reveal" ? player.item.chosen : player.k;
+  pitch += (0.1 - 0.3 * (look / Math.max(1, K - 1)) - pitch) * Math.min(1, dt * 4);
+  fly.head.rotation.z = pitch;
+  fly.head.rotation.y = 0.08 * Math.sin(time * 0.7);
+  fly.fly.position.y = 0.04 * Math.sin(time * 2.1);
+  const tapping = player.phase === "reveal" && player.timer < 1.4;
+  fly.tapLeg.rotation.z = tapping ? 0.35 * Math.max(0, Math.sin(player.timer * 9)) : 0;
+  holo.rotation.y += dt * 0.25;
+
+  for (let i = 0; i < DROPS; i++) {
+    const o = i * 6;
+    let y = rain[o + 1] - dt * 38;
+    if (y < -14) y += 59;
+    rain[o + 1] = y;
+    rain[o + 4] = y - 1.6;
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+
+  const k = 1 - Math.exp(-dt * 2);
+  camPos.lerp(new V(...SHOTS[shot].pos), k);
+  camLook.lerp(new V(...SHOTS[shot].look), k);
+  camera.position.copy(camPos).add(new V(Math.sin(time * 0.13) * 0.5, Math.sin(time * 0.21) * 0.25, Math.cos(time * 0.11) * 0.35));
+  camera.lookAt(camLook);
+
+  drawScreen();
+  drawReplay(active);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
