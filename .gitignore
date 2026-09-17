@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+/data/
+/cache/
+/runs/
+/viz/data/
+/mlflow.db
+/mlruns/
+.coverage
+.pytest_cache/
+.ruff_cache/
+dist/
+
+DOCS.md
+/levels/
+/private/

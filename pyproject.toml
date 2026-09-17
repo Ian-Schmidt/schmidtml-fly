@@ -1,0 +1,52 @@
+[project]
+name = "schmidtml-fly"
+version = "0.1.0"
+description = "Коннектом дрозофилы FlyWire как рекуррентная сеть, которую учат сдавать тесты schmidtml"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "mlflow>=3.16.0",
+    "numpy>=2.5.3",
+    "pandas>=3.0.5",
+    "pyarrow>=25.0.1",
+    "sentence-transformers>=6.0.1",
+    "torch>=2.14.0",
+]
+
+[project.scripts]
+fly-train = "fly.training.train:main"
+fly-continual = "fly.training.continual:main"
+fly-export-viz = "fly.viz.export:main"
+fly-plot-matrix = "fly.viz.matrix:main"
+
+[dependency-groups]
+# ty в альфе: без пина новая версия может уронить CI на ровном месте
+dev = ["pytest>=8", "pytest-cov>=6", "ruff>=0.9", "ty==0.0.81", "pre-commit>=4"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.10"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fly"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]  # в src — примеры из докстрингов
+addopts = "--doctest-modules --cov=fly --cov-report=term-missing"
+
+[tool.coverage.report]
+fail_under = 100  # это число показывает бейдж coverage в README; ниже — тесты падают
+# main() — это запуск обучения на настоящем коннектоме с MLflow: часы на GPU, а не юнит-тест
+exclude_also = ["def main\\(", "if __name__ == .__main__.:"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["B905"]  # zip без strict= — в коде списки одной длины по построению
+
+[tool.ty.src]
+include = ["src", "tests"]
