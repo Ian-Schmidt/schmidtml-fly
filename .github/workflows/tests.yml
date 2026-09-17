@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      # коннектом и соседние репозитории не нужны: тесты идут на игрушечном мозге.
+      # Порог покрытия — tool.coverage.report.fail_under в pyproject.toml, его же показывает бейдж.
+      - run: uv run pytest
