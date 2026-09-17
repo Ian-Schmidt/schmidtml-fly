@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      # линтеру зависимости проекта не нужны: ставим только ruff той же версии, что в pre-commit
+      # the linter needs no project dependencies: install only ruff, same version as in pre-commit
       - run: uvx ruff@0.16.8 check --output-format github .
 
   ty:
@@ -25,5 +25,5 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --locked  # типам нужны установленные torch, pandas, mlflow
+      - run: uv sync --locked  # type checking needs torch, pandas and mlflow installed
       - run: uv run ty check

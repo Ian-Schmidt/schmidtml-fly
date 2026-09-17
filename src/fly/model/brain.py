@@ -27,13 +27,13 @@ from fly.utils.config import load
 from fly.utils.paths import DATA
 
 _CFG = load("model")
-MIN_SYN: int = _CFG["min_syn"]  # стандартный порог FlyWire: 2,7 млн связей, 63% всех синапсов
-STEPS: int = _CFG["steps"]  # от рецептора до нисходящего нейрона 5–7 синапсов, сигналу нужно время дойти
-ANSWER_AT: int = _CFG["answer_at"]  # до этого шага муха нюхает только вопрос, дальше вопрос + вариант
-READ_LAST: int = _CFG["read_last"]  # выбор считывается по последним шагам
+MIN_SYN: int = _CFG["min_syn"]  # the standard FlyWire threshold: 2.7M connections, 63% of all synapses
+STEPS: int = _CFG["steps"]  # 5–7 synapses from a receptor to a descending neuron: the signal needs time
+ANSWER_AT: int = _CFG["answer_at"]  # before this step the fly smells only the question, then question + option
+READ_LAST: int = _CFG["read_last"]  # the choice is read out over the last steps
 ALPHA: float = _CFG["alpha"]  # dt / tau
-GAIN: float = _CFG["gain"]  # подобрано так, чтобы при старте были активны ~29% нисходящих нейронов
-EMB_DIM: int = _CFG["emb_dim"]  # размерность эмбеддингов e5-small
+GAIN: float = _CFG["gain"]  # tuned so that ~29% of the descending neurons are active at the start
+EMB_DIM: int = _CFG["emb_dim"]  # dimensionality of e5-small embeddings
 
 
 class Sense(NamedTuple):
@@ -58,7 +58,7 @@ class NeuronClass(NamedTuple):
         key: Short key (`orn`, `kc`, `dn`…) — the class is logged to MLflow metrics under this name.
         label: Caption in the visualization legend.
         color: Colour in the visualization, hex.
-        belongs: Annotations → boolean mask "the neuron belongs to the class"; None means "everything else".
+        belongs: Annotations -> boolean mask "the neuron belongs to the class"; None means "everything else".
     """
 
     key: str
@@ -97,7 +97,7 @@ def _membership(spec: dict[str, Any]) -> Callable[[pd.DataFrame], pd.Series] | N
             `isin` or `startswith`. Without `column` the class means "everything else".
 
     Returns:
-        A function "annotations → boolean mask", or None for the "everything else" class.
+        A function "annotations -> boolean mask", or None for the "everything else" class.
 
     Raises:
         ValueError: If the entry has `column` but no condition.
@@ -114,7 +114,7 @@ def _membership(spec: dict[str, Any]) -> Callable[[pd.DataFrame], pd.Series] | N
     raise ValueError(f"класс {spec['key']}: нужно одно из условий equals, isin, startswith")
 
 
-# порядок задаёт приоритет, последний класс — все остальные
+# order sets priority; the last class is "everything else"
 CLASSES: list[NeuronClass] = [
     NeuronClass(spec["key"], spec["label"], spec["color"], _membership(spec)) for spec in _CFG["classes"]
 ]
@@ -271,16 +271,16 @@ class FlyBrain(torch.nn.Module):
         """
         super().__init__()
         n = len(sign)
-        # каждый нейрон получает взвешенное среднее входов: сигнал не взрывается, но и не глохнет
+        # every neuron gets a weighted mean of its inputs: the signal neither explodes nor dies out
         in_total = np.bincount(post, weights=syn, minlength=n)
         w = sign[pre] * syn / in_total[post]
         self.register_buffer("W", torch.sparse_coo_tensor(
             torch.tensor(np.stack([post, pre])), torch.tensor(w, dtype=torch.float32), (n, n)).coalesce())
         self.register_buffer("outputs", outputs)
-        # «Нос» каждого чувства: фиксированная случайная проекция текста на его каналы. Не обучается.
+        # The "nose" of each sense: a fixed random projection of text onto its channels. Not trained.
         g = torch.Generator().manual_seed(seed)
-        # Чувства вливают одинаковый суммарный ток: иначе 10 855 фоторецепторов просто перекрикивают
-        # 2 279 обонятельных, и вклад второго текста теряется.
+        # Senses inject equal total current: otherwise 10,855 photoreceptors simply shout down the
+        # 2,279 olfactory ones and the second text's contribution is lost.
         mean_n = sum(len(idx) for idx, _ in senses.values()) / len(senses)
         for key, (idx, code) in senses.items():
             self.register_buffer(f"in_{key}", idx)
@@ -290,8 +290,8 @@ class FlyBrain(torch.nn.Module):
         self.senses = list(senses)
         self.q_sense, self.a_sense = self.senses[0], self.senses[-1]
         self.gain = gain
-        self.log_gain = torch.nn.Parameter(torch.zeros(n))  # громкость выхода нейрона
-        self.bias = torch.nn.Parameter(torch.zeros(n))  # порог возбудимости
+        self.log_gain = torch.nn.Parameter(torch.zeros(n))  # output loudness of a neuron
+        self.bias = torch.nn.Parameter(torch.zeros(n))  # excitability threshold
         self.readout = torch.nn.Linear(len(outputs), 1)
         self.n = n
 
@@ -366,7 +366,7 @@ class FlyBrain(torch.nn.Module):
         for t in range(STEPS):
             i = i_q if t < ANSWER_AT else i_qa
             v = v + ALPHA * (-v + torch.sparse.mm(self.W, out_gain * r) + self.bias[:, None] + i)
-            r = torch.tanh(torch.relu(v))  # частота разрядов в [0, 1)
+            r = torch.tanh(torch.relu(v))  # firing rate in [0, 1)
             if t >= STEPS - READ_LAST:
                 read = read + r[self.outputs]
             if record:

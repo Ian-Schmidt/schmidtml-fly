@@ -97,7 +97,7 @@ def test_load_connectome_filters_weak_edges(tmp_path, monkeypatch):
     pd.DataFrame({"Presynaptic_Index": [0, 1, 2], "Postsynaptic_Index": [1, 2, 0],
                   "Connectivity": [fly.MIN_SYN - 1, fly.MIN_SYN, 40], "Excitatory": [1, -1, 1],
                   "extra": 0}).to_parquet(tmp_path / "Connectivity_783.parquet")
-    rows = toy_ann().head(3).assign(root_id=[33, 11, 22])  # порядок аннотаций не совпадает с порядком нейронов
+    rows = toy_ann().head(3).assign(root_id=[33, 11, 22])  # annotation order differs from neuron order
     rows.to_csv(tmp_path / "annotations.tsv", sep="\t", index=False)
     monkeypatch.setattr(brain_module, "DATA", tmp_path)
 

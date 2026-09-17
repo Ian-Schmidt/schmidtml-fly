@@ -18,7 +18,7 @@ def similarity_task(n=60, k=4, d=16, seed=0):
 
 
 def test_references_on_similarity_task(edges, ann):
-    senses = {"smell": (torch.arange(N), torch.arange(N))}  # широкий вход: свой канал у каждого нейрона
+    senses = {"smell": (torch.arange(N), torch.arange(N))}  # wide input: every neuron has its own channel
     b = fly.FlyBrain(*fly.wiring(edges, N), senses, fly.descending(ann), emb_dim=16)
     q, a, t, tr, te = similarity_task()
     ref = baselines.references(b, q, a, t, tr, te, epochs=50)
@@ -27,7 +27,7 @@ def test_references_on_similarity_task(edges, ann):
 
 
 def test_linear_on_input_with_two_senses(edges, ann):
-    """Different senses for question and answer → the branch with a C×C channel-matching matrix."""
+    """Different senses for question and answer -> the branch with a C×C channel-matching matrix."""
     b = fly.FlyBrain(*fly.wiring(edges, N), {k: fly.sense(ann, k) for k in ("smell", "sight")},
                      fly.descending(ann), emb_dim=16)
     q, a, t, tr, te = similarity_task()

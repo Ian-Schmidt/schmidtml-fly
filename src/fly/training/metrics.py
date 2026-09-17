@@ -9,7 +9,7 @@ from torch import Tensor
 from fly.model.brain import CLASSES, READ_LAST, FlyBrain
 from fly.utils.config import load
 
-ACTIVE_RATE: float = load("training")["active_rate"]  # с какой частоты нейрон считается активным
+ACTIVE_RATE: float = load("training")["active_rate"]  # the rate above which a neuron counts as active
 
 
 class EvalMetrics(TypedDict):

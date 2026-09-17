@@ -26,7 +26,7 @@ def test_evaluate(brain, quiz):
 def test_brain_stats_per_class(brain, quiz, ann):
     q, a, _ = quiz
     with torch.no_grad():
-        brain.log_gain[:30] = 0.5  # «перенастроили» обонятельные рецепторы
+        brain.log_gain[:30] = 0.5  # the olfactory receptors got "retuned"
     stats = metrics.brain_stats(brain, q[:2], a[:2], torch.tensor(fly.classify(ann)))
     assert stats["orn"]["gain"] == pytest.approx(0.5) and stats["central"]["gain"] == 0
     assert stats["orn"]["rate"] > 0 and 0 <= stats["dn"]["active"] <= 1

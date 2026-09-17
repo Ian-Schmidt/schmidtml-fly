@@ -69,7 +69,7 @@ class Split(NamedTuple):
     test: Tensor
 
 
-# порядок этапов — порядок, в котором муха проходит роадмап в `fly-continual`; ключ этапа — поле `topic` задачи
+# stage order is the order the fly walks the roadmap in `fly-continual`; a stage key is a task's `topic` field
 STAGES = [Stage(s["key"], s["title"], s["label"]) for s in _CFG["stages"]]
 
 
@@ -111,7 +111,7 @@ def fingerprint(items: list[Task]) -> str:
 
 
 def embed(items: list[Task], task: str) -> tuple[Tensor, Tensor]:
-    """Text → "odour": embeddings of the questions and options.
+    """Text -> "odour": embeddings of the questions and options.
 
     The texts are read by a frozen e5 (this is the fly's nose, not its brain). The encoder runs once
     per data version: the result is cached in `cache/` under the level's fingerprint.
@@ -135,7 +135,7 @@ def embed(items: list[Task], task: str) -> tuple[Tensor, Tensor]:
         a = enc(["passage: " + o for it in items for o in it["options"]]).view(len(items), -1, q.shape[1])
         cache.parent.mkdir(exist_ok=True)
         torch.save((q, a), cache)
-    # у e5 все тексты смотрят почти в одну сторону (косинус ~0.75) — без центрирования все запахи одинаковые
+    # with e5 all texts point almost the same way (cosine ~0.75) — without centring every odour smells the same
     center = torch.cat([q, a.flatten(0, 1)]).mean(0)
     return F.normalize(q - center, dim=-1), F.normalize(a - center, dim=-1)
 

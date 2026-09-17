@@ -18,6 +18,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      # коннектом и соседние репозитории не нужны: тесты идут на игрушечном мозге.
-      # Порог покрытия — tool.coverage.report.fail_under в pyproject.toml, его же показывает бейдж.
+      # neither the connectome nor any question data is needed: the tests run on a toy brain.
+      # The coverage floor is tool.coverage.report.fail_under in pyproject.toml; the badge shows the same number.
       - run: uv run pytest

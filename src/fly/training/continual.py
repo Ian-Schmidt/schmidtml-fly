@@ -38,7 +38,7 @@ from fly.utils.config import load  # noqa: E402
 from fly.utils.paths import PACKAGE, RUNS  # noqa: E402
 from fly.utils.tracking import EXPERIMENT, TRACKING, stage  # noqa: E402
 
-DEFAULTS = load("training")["continual"]  # значения аргументов fly-continual по умолчанию
+DEFAULTS = load("training")["continual"]  # default values of the fly-continual arguments
 C = load("viz")["palette"]
 LABELS = {stage.key: stage.label for stage in tasks.STAGES}
 
@@ -151,7 +151,7 @@ def main() -> None:
         cosine = [accuracy((q[te, None] * a[te]).sum(-1), t[te]) for _, te in splits]
         mlflow.log_params({
             **vars(args), "strategy": strategy, "data": tasks.fingerprint(items), "encoder": tasks.ENCODER,
-            "stages": " → ".join(keys), "trainable": sum(p.numel() for p in brain.parameters()),
+            "stages": " -> ".join(keys), "trainable": sum(p.numel() for p in brain.parameters()),
             "channels": sum(brain.channels(k) for k in brain.senses),
             **{f"n_train/{k}": len(tr) for k, (tr, _) in zip(keys, splits)},
             **{f"n_test/{k}": len(te) for k, (_, te) in zip(keys, splits)},
@@ -167,10 +167,10 @@ def main() -> None:
         for s, key in enumerate(keys):
             with stage(f"stage-{s + 1}-{key}", SpanType.WORKFLOW, root=rid, stage=key, epochs=args.epochs) as span:
                 t0, losses = time.time(), []
-                old = torch.cat([splits[j][0] for j in range(s)]) if s else splits[0][0][:0]  # прошлых этапов ещё нет
+                old = torch.cat([splits[j][0] for j in range(s)]) if s else splits[0][0][:0]  # no past stages yet
                 for _ in range(args.epochs):
                     pool = splits[s][0]
-                    if args.replay and s:  # повторение: каждую эпоху новая случайная выборка из прошлых этапов
+                    if args.replay and s:  # replay: a fresh random sample from past stages every epoch
                         pool = torch.cat([pool, old[torch.randperm(len(old))[: int(args.replay * len(pool))]]])
                     for b in pool[torch.randperm(len(pool))].split(args.batch):
                         loss = F.cross_entropy(brain.choose(q[b], a[b]), t[b])

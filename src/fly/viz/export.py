@@ -1,7 +1,7 @@
 """Records brain activity for the 3D visualization (viz/index.html).
 
     uv run fly-export-viz --run runs/quiz --n 4
-    cd viz && python3 -m http.server 8000      # → http://localhost:8000/?run=quiz
+    cd viz && python3 -m http.server 8000      # -> http://localhost:8000/?run=quiz
 """
 
 import argparse
@@ -20,7 +20,7 @@ from fly.utils.config import load
 from fly.utils.paths import VIZ
 
 _CFG = load("viz")
-DEFAULTS = _CFG["export"]  # значения аргументов fly-export-viz по умолчанию
+DEFAULTS = _CFG["export"]  # default values of the fly-export-viz arguments
 TITLES: dict[str, str] = _CFG["titles"]
 
 
@@ -33,10 +33,10 @@ def export_brain(ann: pd.DataFrame) -> None:
     """
     cls = fly.classify(ann)
     voxel_nm = np.array(_CFG["voxel_nm"], np.float32)
-    xyz = ann[["pos_x", "pos_y", "pos_z"]].to_numpy(np.float32) * voxel_nm / 1000  # воксели → мкм
-    missing = np.isnan(xyz).any(1)  # ~600 нейронов без аннотации — не рисуем
+    xyz = ann[["pos_x", "pos_y", "pos_z"]].to_numpy(np.float32) * voxel_nm / 1000  # voxels -> µm
+    missing = np.isnan(xyz).any(1)  # ~600 neurons without an annotation are not drawn
     xyz -= np.nanmean(xyz, 0)
-    xyz[:, 1] *= -1  # у FlyWire y растёт вниз
+    xyz[:, 1] *= -1  # FlyWire's y axis points down
     xyz[missing], cls[missing] = 0, 255
     VIZ.mkdir(parents=True, exist_ok=True)
     (VIZ / "brain.bin").write_bytes(xyz.tobytes() + cls.tobytes())
@@ -83,7 +83,7 @@ def main() -> None:
             })
 
     hist = json.loads((run / "history.json").read_text()) if (run / "history.json").exists() else {}
-    # точность на экзамене скачет между эпохами на несколько пунктов — показываем среднее за последние 5, как в DOCS
+    # exam accuracy jumps by a few points between epochs — show the mean of the last 5, as in DOCS
     tail = hist.get("history", [])[-5:]
     exam = {"mean": statistics.mean(r["test_acc"] for r in tail), "sd": statistics.stdev(r["test_acc"] for r in tail),
             "epochs": [tail[0]["epoch"], tail[-1]["epoch"]]} if len(tail) > 1 else None
@@ -93,7 +93,7 @@ def main() -> None:
     (VIZ / f"{run.name}.bin").write_bytes(np.stack(frames).tobytes())
     (VIZ / f"{run.name}.json").write_text(json.dumps(meta, ensure_ascii=False))
     right = sum(x["correct"] for x in questions)
-    print(f"{run.name}: {len(questions)} вопросов, муха ответила верно на {right} → viz/data/{run.name}.*")
+    print(f"{run.name}: {len(questions)} вопросов, муха ответила верно на {right} -> viz/data/{run.name}.*")
 
 
 if __name__ == "__main__":

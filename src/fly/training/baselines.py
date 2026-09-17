@@ -67,12 +67,12 @@ def linear_on_input(
     cut = int(len(tr) * (1 - _CFG["input_val_frac"]))
     fit, val = tr[:cut], tr[cut:]
 
-    same = gq.shape[1] == ga.shape[2]   # одно чувство на оба текста → сходство каналов сравнивается напрямую
+    same = gq.shape[1] == ga.shape[2]   # one sense for both texts -> channel similarity is compared directly
 
     def trained(idx: Tensor, wd: float) -> Callable[[Tensor], Tensor]:
-        # При общем чувстве хватает 3·C весов (поэлементное произведение каналов). При разных чувствах
-        # соответствие каналов приходится учить матрицей C×C: на широком входе её параметров больше, чем
-        # данных, и такая оценка потолка занижена — в DOCS это оговорено.
+        # With a shared sense 3·C weights are enough (element-wise product of channels). With different
+        # senses the channel correspondence has to be learned by a C×C matrix: on a wide input it has more
+        # parameters than there is data, so the ceiling estimate is biased low — DOCS says so explicitly.
         u = torch.zeros(ga.shape[2], device=dev, requires_grad=True)
         v = torch.zeros(gq.shape[1], device=dev, requires_grad=True)
         W = torch.zeros(gq.shape[1], ga.shape[2] if not same else 0, device=dev, requires_grad=True)
@@ -92,7 +92,7 @@ def linear_on_input(
             return accuracy(score(idx), y[idx])
 
     best = max(decays, key=lambda wd: acc_of(trained(fit, wd), val))
-    score = trained(tr, best)   # с выбранной регуляризацией — заново на всей обучающей части
+    score = trained(tr, best)   # with the chosen regularization — refit on the whole training part
     return acc_of(score, tr), acc_of(score, te)
 
 

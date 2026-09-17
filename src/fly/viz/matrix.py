@@ -1,6 +1,6 @@
 """The fly brain's connectivity matrix as a picture.
 
-    uv run fly-plot-matrix                       # → docs/connectome-matrix.png
+    uv run fly-plot-matrix                       # -> docs/connectome-matrix.png
 
 The model has one connectivity matrix for the whole brain — 138,639 × 138,639 with 2.7M non-zero cells.
 It cannot be drawn as is: the screen has too few pixels and the matrix is 0.014% full. Hence two views:
@@ -8,7 +8,7 @@ It cannot be drawn as is: the screen has too few pixels and the matrix is 0.014%
 - left — the matrix itself: neurons are sorted by class and squeezed into bins, brightness is the
   number of synapses that fell into a cell (log scale). The block structure is visible, and so is the
   fact that the brain is not layered: connections go every way, including backwards;
-- right — a "class → class" summary: which classes each class gets its input synapses from.
+- right — a "class -> class" summary: which classes each class gets its input synapses from.
   A row sums to 100% — exactly how the matrix is normalized in the model (`FlyBrain.W`).
 """
 
@@ -54,7 +54,7 @@ def binned_matrix(edges: pd.DataFrame, cls: np.ndarray, bins: int = DEFAULTS["bi
     """
     n = len(cls)
     rank = np.empty(n, np.int64)
-    rank[np.argsort(cls, kind="stable")] = np.arange(n)  # место нейрона после сортировки по классам
+    rank[np.argsort(cls, kind="stable")] = np.arange(n)  # position of the neuron after sorting by class
     scale = bins / n
     post = (rank[edges.Postsynaptic_Index.to_numpy()] * scale).astype(np.int64)
     pre = (rank[edges.Presynaptic_Index.to_numpy()] * scale).astype(np.int64)
@@ -89,7 +89,7 @@ def class_matrix(edges: pd.DataFrame, cls: np.ndarray) -> np.ndarray:
 
 
 def reciprocity(edges: pd.DataFrame) -> float:
-    """Computes the share of connections that have a reverse one: A → B and B → A.
+    """Computes the share of connections that have a reverse one: A -> B and B -> A.
 
     Args:
         edges: Connections from `fly.load_connectome`.
@@ -127,7 +127,7 @@ def plot(edges: pd.DataFrame, cls: np.ndarray, path: Path, bins: int = DEFAULTS[
         left.axhline(b - 0.5, color=LINE, lw=0.6)
         left.axvline(b - 0.5, color=LINE, lw=0.6)
     mid = (bounds[:-1] + bounds[1:]) / 2
-    wide = np.diff(bounds) > bins * DEFAULTS["min_label_frac"]  # узкие классы не подписываем: подписи слипнутся
+    wide = np.diff(bounds) > bins * DEFAULTS["min_label_frac"]  # narrow classes get no label: labels would overlap
     left.set_xticks(mid[wide], [k for k, w in zip(keys, wide) if w], color=MUTE, fontsize=11)
     left.set_yticks(mid[wide], [k for k, w in zip(keys, wide) if w], color=MUTE, fontsize=11)
     left.set_xlabel("кто передаёт", color=MUTE, fontsize=12)

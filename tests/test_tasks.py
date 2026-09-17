@@ -60,7 +60,7 @@ def test_embed_encodes_once_then_reads_cache(site, monkeypatch):
         def encode(self, texts, **_):
             calls.append(texts)
             g = torch.Generator().manual_seed(len(texts))
-            return (torch.randn(len(texts), 8, generator=g) + 3).numpy()  # общий сдвиг — как анизотропия e5
+            return (torch.randn(len(texts), 8, generator=g) + 3).numpy()  # a shared offset — like e5's anisotropy
 
     monkeypatch.setitem(sys.modules, "sentence_transformers", types.SimpleNamespace(SentenceTransformer=FakeEncoder))
     items = [task([0], q=f"q{i}", options=[f"o{i}{k}" for k in range(4)]) for i in range(6)]

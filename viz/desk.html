@@ -46,7 +46,7 @@ import { buildFly, animateFly, std, neon, limb } from "./fly-model.js";
 
 const params = new URLSearchParams(location.search);
 const RUN = params.get("run") || "quiz";
-const PIXEL = Math.max(1, +(params.get("pixel") || 2));   // во сколько раз «крупнее» пиксели, 1 — без пикселизации
+const PIXEL = Math.max(1, +(params.get("pixel") || 2));   // how many times "bigger" the pixels are; 1 — no pixelation
 if (params.has("clean")) document.body.classList.add("clean");
 const $ = (id) => document.getElementById(id);
 
@@ -65,13 +65,13 @@ const classIndex = (key) => brain.classes.findIndex((c) => c.key === key);
 const ORN = classIndex("orn"), DN = classIndex("dn");
 $("sub").textContent = `${N.toLocaleString("en-US")} NEURONS · 2.7M CONNECTIONS · FLYWIRE V783`;
 
-// детерминированный генератор: город и щетинки одинаковые при каждой загрузке
+// deterministic generator: the city and the bristles are the same on every load
 let seed = 7;
 const rng = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 const rnd = (a, b) => a + rng() * (b - a);
 const V = THREE.Vector3;
 
-// --- рендер и сцена ---
+// --- renderer and scene ---
 const renderer = new THREE.WebGLRenderer({ canvas: $("scene"), antialias: false });
 renderer.setPixelRatio(1);
 const scene = new THREE.Scene();
@@ -85,7 +85,7 @@ sky.width = 2; sky.height = 256;
 }
 scene.background = new THREE.CanvasTexture(sky);
 scene.background.colorSpace = THREE.SRGBColorSpace;
-scene.fog = new THREE.Fog(0x2a1850, 70, 240);   // дальние дома тонут в фиолетовой дымке
+scene.fog = new THREE.Fog(0x2a1850, 70, 240);   // distant buildings sink into a purple haze
 const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.1, 400);
 
 function box(w, h, d, mat, x, y, z, parent = scene) {
@@ -106,7 +106,7 @@ const deskGlow = new THREE.PointLight(0x2de2d0, 35, 18, 1.2);
 deskGlow.position.set(-2, 1, 7);
 scene.add(deskGlow);
 
-// --- город за окном ---
+// --- the city outside the window ---
 function windowsTexture() {
   const c = document.createElement("canvas");
   c.width = 32; c.height = 64;
@@ -125,9 +125,9 @@ function windowsTexture() {
 }
 const windows = windowsTexture();
 for (let i = 0; i < 160; i++) {
-  const w = rnd(10, 28), d = rnd(10, 24), h = rnd(10, 45);   // ниже верха окна, чтобы было видно небо
+  const w = rnd(10, 28), d = rnd(10, 24), h = rnd(10, 45);   // lower than the top of the window so the sky stays visible
   const tex = windows.clone();
-  tex.repeat.set(w / 4, h / 6);   // окна мелкие: ~0,5 единицы сцены на окно
+  tex.repeat.set(w / 4, h / 6);   // small windows: ~0.5 scene units per window
   tex.offset.set(rng(), rng());
   box(w, h, d, new THREE.MeshBasicMaterial({ map: tex }), rnd(-260, 260), h / 2 - 14, rnd(-260, -90));
 }
@@ -141,7 +141,7 @@ const rainGeo = new THREE.BufferGeometry();
 rainGeo.setAttribute("position", new THREE.BufferAttribute(rain, 3));
 scene.add(new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x7d86ff, transparent: true, opacity: 0.35 })));
 
-// --- комната: стена с окном, пол, стол ---
+// --- the room: a wall with a window, the floor, the desk ---
 const wall = std(0x1d1638), frame = std(0x120e24);
 box(170, 13, 1, wall, 0, -7.5, -15);
 box(170, 17, 1, wall, 0, 36.5, -15);
@@ -159,7 +159,7 @@ box(0.14, 0.14, 13, neon(0xff3fa6), -15, 0.02, -1);
 for (const [x, z] of [[-14, 4.6], [16, 4.6], [-14, -6.6], [16, -6.6]]) box(0.7, 14, 0.7, legMat, x, -7.4, z);
 box(0.12, 14, 0.12, neon(0xff3fa6), -13.6, -7.4, 5.0);
 
-// --- монитор с тестом ---
+// --- the monitor with the quiz ---
 const monitor = new THREE.Group();
 monitor.position.set(9.5, 0, -2.5);
 monitor.rotation.y = -1.12;
@@ -178,7 +178,7 @@ const screen = new THREE.Mesh(new THREE.PlaneGeometry(12, 7.3), new THREE.MeshBa
 screen.position.set(0, 5.2, 0.26);
 monitor.add(screen);
 
-// клавиатура и кружка
+// keyboard and mug
 const keysCanvas = document.createElement("canvas");
 keysCanvas.width = 160; keysCanvas.height = 56;
 {
@@ -208,19 +208,19 @@ handle.position.set(0, 0, 0.95);
 handle.rotation.y = Math.PI / 2;
 mug.add(handle);
 
-// --- муха (модель и её анимация — в fly-model.js) ---
+// --- the fly (its model and animation live in fly-model.js) ---
 const fly = buildFly();
 fly.fly.position.set(-1.5, 0, 0.5);
-fly.fly.rotation.y = 0.18;   // смотрит на монитор
+fly.fly.rotation.y = 0.18;   // looks at the monitor
 scene.add(fly.fly);
 
-// --- голограмма мозга над головой ---
+// --- the brain hologram overhead ---
 const holo = new THREE.Group();
-holo.position.set(-5.2, 8.6, 1.8);   // над брюшком, чтобы не закрывать монитор
+holo.position.set(-5.2, 8.6, 1.8);   // above the abdomen so it does not cover the monitor
 scene.add(holo);
-// 138 тыс. точек в маленьком объёме: мелкие точки и обычное смешивание, иначе облако сливается в белое пятно
+// 138k points in a small volume: tiny points and normal blending, otherwise the cloud merges into a white blob
 const cloud = brainCloud(data, { unit: 0.018, base: 0.08, additive: false });
-cloud.points.scale.setScalar(0.0065);    // 720 мкм → ~4,7 единицы сцены
+cloud.points.scale.setScalar(0.0065);    // 720 µm → ~4.7 scene units
 holo.add(cloud.points);
 const ring = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.05, 4, 48), neon(0x46e6ff));
 ring.rotation.x = Math.PI / 2;
@@ -232,11 +232,11 @@ beam.position.y = -2.1;
 holo.add(beam);
 holo.visible = !params.has("noholo");
 
-// --- экран монитора ---
+// --- the monitor screen ---
 const sctx = screenCanvas.getContext("2d");
 const FONT = "Inter, system-ui, -apple-system, sans-serif";
 function wrap(g, text, maxW, maxLines) {
-  // формулы из банка вопросов («$n$-грамм») монитор не рендерит — показываем без долларов
+  // the monitor does not render formulas in question texts ("$n$-gram") — show them without the dollar signs
   const words = text.replace(/\$/g, "").replace(/\s+/g, " ").trim().split(" ");
   const lines = [];
   let line = "";
@@ -261,7 +261,7 @@ function drawScreen() {
   g.fillText(`${it.topic} · ${player.qi + 1}/${run.questions.length}`, W - 32, 31);
   g.textAlign = "left"; g.textBaseline = "alphabetic";
 
-  // шрифты крупные: монитор занимает треть кадра, а сцена ещё и пикселизирована
+  // large fonts: the monitor takes a third of the frame and the scene is pixelated on top of that
   g.font = `700 46px ${FONT}`; g.fillStyle = "#e8edf5";
   const qLines = wrap(g, it.q, W - 64, 3);
   qLines.forEach((l, i) => g.fillText(l, 32, 124 + i * 56));
@@ -293,7 +293,7 @@ function drawScreen() {
   screenTex.needsUpdate = true;
 }
 
-// --- панель NEURAL REPLAY ---
+// --- the NEURAL REPLAY panel ---
 const spark = $("spark").getContext("2d");
 const history = new Float32Array(T);
 let peak = 1;
@@ -312,12 +312,12 @@ function drawReplay(active) {
   }
 }
 
-// --- камера: несколько планов, C переключает ---
+// --- camera: several shots, C switches between them ---
 const SHOTS = [
-  { pos: [-13, 8.5, 15], look: [3, 3.5, -1] },     // общий план, как на референсе
-  { pos: [-6.5, 6.5, 6.5], look: [8.5, 4.6, -2.5] }, // из-за плеча на экран
-  { pos: [0.5, 9.2, 10.5], look: [-5.2, 8.4, 1.8] }, // голограмма мозга (висит над брюшком)
-  { pos: [7.5, 3.8, 5.5], look: [-1, 3, 0.5] },      // муха крупно спереди
+  { pos: [-13, 8.5, 15], look: [3, 3.5, -1] },     // wide shot, as in the reference
+  { pos: [-6.5, 6.5, 6.5], look: [8.5, 4.6, -2.5] }, // over the shoulder, at the screen
+  { pos: [0.5, 9.2, 10.5], look: [-5.2, 8.4, 1.8] }, // the brain hologram (hovers above the abdomen)
+  { pos: [7.5, 3.8, 5.5], look: [-1, 3, 0.5] },      // the fly up close, from the front
 ];
 let shot = Math.min(+(params.get("shot") || 0), SHOTS.length - 1);
 const camPos = new V(...SHOTS[shot].pos), camLook = new V(...SHOTS[shot].look);
@@ -349,7 +349,7 @@ renderer.setAnimationLoop(() => {
   const active = cloud.update(player.target());
   const orn = cloud.mean[ORN] || 0, dn = cloud.mean[DN] || 0;
 
-  // муха живёт по данным: усики — обонятельные рецепторы, крылья — нисходящие нейроны
+  // the fly is driven by data: antennae — olfactory receptors, wings — descending neurons
   animateFly(fly, { orn, dn, time });
   const look = player.phase === "reveal" ? player.item.chosen : player.k;
   pitch += (0.1 - 0.3 * (look / Math.max(1, K - 1)) - pitch) * Math.min(1, dt * 4);

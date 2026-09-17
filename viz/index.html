@@ -10,7 +10,7 @@
     font:15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
   canvas { display:block; }
   .hud { position:fixed; pointer-events:none; }
-  body.clean .hud { display:none !important; }  /* иначе #options и #legend с display:grid перебивают по специфичности */
+  body.clean .hud { display:none !important; }  /* otherwise #options and #legend with display:grid win on specificity */
   #top { top:22px; left:50%; transform:translateX(-50%); width:min(920px, 88vw); text-align:center; }
   #level { color:var(--accent); font-size:12px; letter-spacing:.14em; text-transform:uppercase; }
   #question { font-size:21px; font-weight:600; margin-top:6px; white-space:pre-wrap; max-height:34vh; overflow:hidden; }
@@ -70,7 +70,7 @@ const { brain, run, N } = data;
 const K = run.k, Q = run.questions.length;
 const player = new Player(run, { speed: +(params.get("speed") || 6), q: +(params.get("q") || 0) });
 
-// --- сцена ---
+// --- scene ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -78,16 +78,16 @@ renderer.setClearColor(0x07090d);
 document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 1, 20000);
-camera.position.set(0, 90, -950);   // спереди: у FlyWire z растёт от передней части мозга к задней
+camera.position.set(0, 90, -950);   // from the front: FlyWire's z grows from the front of the brain to the back
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.35;   // полный оборот за ~3 минуты (update получает dt, иначе скорость зависит от FPS)
+controls.autoRotateSpeed = 0.35;   // a full turn in ~3 minutes (update gets dt, otherwise the speed depends on FPS)
 const cloud = brainCloud(data);
 cloud.material.uniforms.scale.value = innerHeight / 2;
 scene.add(cloud.points);
 
-// --- интерфейс ---
+// --- UI ---
 const $ = (id) => document.getElementById(id);
 $("legend").innerHTML = brain.classes.map((c) => `<div><b style="background:${c.color}"></b>${c.name}</div>`).join("");
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -103,7 +103,7 @@ const optionsEl = $("options");
 function showQuestion() {
   const item = player.item;
   $("level").textContent = `${run.title} · ${item.topic} · ${player.qi + 1}/${Q}`;
-  const plain = (s) => s.replace(/\$/g, "");   // формулы из банка вопросов («$n$-грамм») тут не рендерятся
+  const plain = (s) => s.replace(/\$/g, "");   // formulas in question texts ("$n$-gram") are not rendered here
   $("question").textContent = plain(item.q);
   optionsEl.innerHTML = item.options.map((o, i) =>
     `<div class="opt" id="o${i}"><div class="row"><span class="l">${LETTERS[i]}</span><span class="t"></span><span class="p"></span></div><div class="bar"><i></i></div></div>`).join("");

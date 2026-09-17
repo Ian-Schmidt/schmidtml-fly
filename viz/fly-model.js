@@ -1,11 +1,11 @@
-// Низкополигональная муха: грудь, брюшко, голова с фасеточными глазами, усики, крылья, шесть лапок.
-// Модель вынесена из desk.html (муха за столом), чтобы сцена и анимация мухи не жили в одном файле
-// и не разъезжались при правках.
+// A low-poly fly: thorax, abdomen, a head with compound eyes, antennae, wings, six legs.
+// The model is split out of desk.html (the fly at its desk) so that the scene and the fly animation
+// do not live in one file and drift apart when edited.
 import * as THREE from "three";
 
 const V = THREE.Vector3;
 
-// детерминированный генератор: щетинки на груди одинаковые при каждой загрузке
+// deterministic generator: the thorax bristles are the same on every load
 let seed = 7;
 const rng = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 const rnd = (a, b) => a + rng() * (b - a);
@@ -14,7 +14,7 @@ export const std = (color, extra = {}) =>
   new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.85, ...extra });
 export const neon = (color) => new THREE.MeshBasicMaterial({ color });
 
-/** Цилиндр от точки a до точки b — сегмент лапки или усика. */
+/** A cylinder from point a to point b — a leg or antenna segment. */
 export function limb(a, b, r, mat) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.8, r, a.distanceTo(b), 5), mat);
   m.position.copy(a).lerp(b, 0.5);
@@ -22,7 +22,7 @@ export function limb(a, b, r, mat) {
   return m;
 }
 
-/** Муха смотрит вдоль +X, стоит на y = 0, длина около 7 единиц — масштабируйте под свою сцену. */
+/** The fly faces +X, stands on y = 0 and is about 7 units long — scale it to your scene. */
 export function buildFly() {
   const fly = new THREE.Group();
   const shell = std(0xa9bcb8), shellDark = std(0x74858c), legs = std(0x39424e);
@@ -34,13 +34,13 @@ export function buildFly() {
     parent.add(m);
     return m;
   };
-  ico(1.5, shell, fly, 0, 2.7, 0, 1.25, 1, 1);                                // грудь
-  ico(1.4, shellDark, fly, -2.7, 2.35, 0, 1.8, 0.95, 1.05).rotation.z = 0.12; // брюшко
+  ico(1.5, shell, fly, 0, 2.7, 0, 1.25, 1, 1);                                // thorax
+  ico(1.4, shellDark, fly, -2.7, 2.35, 0, 1.8, 0.95, 1.05).rotation.z = 0.12; // abdomen
   const head = new THREE.Group();
   head.position.set(1.95, 2.95, 0);
   fly.add(head);
   ico(0.95, shell, head, 0.1, 0, 0, 0.8, 1, 1.15);
-  for (const s of [-1, 1]) ico(0.78, eyeMat, head, 0.25, 0.12, s * 0.62, 0.85, 1.15, 0.7); // фасеточные глаза
+  for (const s of [-1, 1]) ico(0.78, eyeMat, head, 0.25, 0.12, s * 0.62, 0.85, 1.15, 0.7); // compound eyes
   const antennae = [-1, 1].map((s) => {
     const a = new THREE.Group();
     a.position.set(0.8, 0.4, s * 0.2);
@@ -50,7 +50,7 @@ export function buildFly() {
     return a;
   });
 
-  // крылья: flap машет вокруг оси тела, spread разводит назад-в стороны, левое — зеркало правого
+  // wings: flap beats around the body axis, spread sweeps them back and out; the left mirrors the right
   const wingShape = new THREE.Shape([[0, 0], [4.9, -0.5], [5.8, 0.3], [5.3, 1.4], [2.3, 1.5], [0.3, 0.5]]
     .map(([x, y]) => new THREE.Vector2(x, y)));
   const wingMat = new THREE.MeshStandardMaterial({
@@ -103,8 +103,8 @@ export function buildFly() {
   return { fly, head, antennae, wings, legs: legGroups, tapLeg: legGroups[3] };
 }
 
-/** Живая муха: усики дрожат от того, что чуют, крылья машут тем сильнее, чем активнее выход в тело.
- *  orn и dn — средние частоты обонятельных рецепторов и нисходящих нейронов (или любые 0…1). */
+/** A living fly: the antennae tremble with what they smell, the wings beat harder the more active the output to the body.
+ *  orn and dn are the mean rates of the olfactory receptors and the descending neurons (or any 0…1 values). */
 export function animateFly({ antennae, wings }, { orn = 0, dn = 0, time = 0, minBuzz = 0 } = {}) {
   antennae.forEach((a, j) => { a.rotation.z = 0.25 + orn * 0.5 * Math.sin(time * 23 + j * 1.7); });
   const buzz = Math.max(minBuzz, Math.min(1, dn * 4));

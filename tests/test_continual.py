@@ -9,13 +9,13 @@ from fly.viz import export as export_viz
 
 
 def test_forgetting():
-    # после этапа 0: 90% на нём; после этапа 1 — 60%; в конце — 50%. Этап 1: 80% → 70%. Этап 2 последний.
+    # after stage 0: 90% on it; after stage 1 — 60%; at the end — 50%. Stage 1: 80% -> 70%. Stage 2 is last.
     R = [[0.9, 0.3, 0.2], [0.6, 0.8, 0.3], [0.5, 0.7, 0.9]]
     assert continual.forgetting(R) == pytest.approx([0.4, 0.1])
 
 
 def test_split_by_group_keeps_question_cards_together():
-    items = [task([0], group=f"q{i // 3}") for i in range(30)]  # 10 вопросов по 3 карточки
+    items = [task([0], group=f"q{i // 3}") for i in range(30)]  # 10 questions with 3 cards each
     idx = list(range(6, 30))
     tr, te = continual.split_by_group(items, idx)
     assert sorted(tr.tolist() + te.tolist()) == idx
@@ -32,7 +32,7 @@ def test_heatmap_writes_png(tmp_path):
 
 def test_export_brain(ann, tmp_path, monkeypatch):
     monkeypatch.setattr(export_viz, "VIZ", tmp_path)
-    ann.loc[5, "pos_x"] = np.nan  # нейрон без аннотации не рисуем
+    ann.loc[5, "pos_x"] = np.nan  # a neuron without an annotation is not drawn
     export_viz.export_brain(ann)
     raw = (tmp_path / "brain.bin").read_bytes()
     n = len(ann)

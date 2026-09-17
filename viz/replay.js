@@ -1,5 +1,5 @@
-// Общее для обеих визуализаций: загрузка записанной активности мозга и расписание «обнюхиваний».
-// Данные пишет export_viz.py в viz/data/.
+// Shared by both visualizations: loading the recorded brain activity and the schedule of "sniffs".
+// The data is written to viz/data/ by `fly-export-viz`.
 import * as THREE from "three";
 
 export const LETTERS = "ABCDEFGH";
@@ -15,9 +15,9 @@ export async function load(runName) {
   return { brain, run, N, pos: new Float32Array(geo, 0, N * 3), cls: new Uint8Array(geo, N * 12, N), A: new Uint8Array(act) };
 }
 
-/** Облако из 138 тыс. нейронов, яркость точки — частота разрядов.
- *  unit — множитель размера точек, base — прозрачность неактивного нейрона,
- *  additive — точки складываются по яркости (в маленьком облаке это даёт белое пятно — тогда false). */
+/** A cloud of 138k neurons; the brightness of a point is its firing rate.
+ *  unit — point size multiplier, base — opacity of an inactive neuron,
+ *  additive — points add up in brightness (in a small cloud this gives a white blob — use false then). */
 export function brainCloud({ brain, run, N, pos, cls, A }, { unit = 1, base = 0.16, additive = true } = {}) {
   const K = run.k, T = run.steps, C = brain.classes.length;
   const geom = new THREE.BufferGeometry();
@@ -59,11 +59,11 @@ export function brainCloud({ brain, run, N, pos, cls, A }, { unit = 1, base = 0.
   });
   const count = new Float32Array(C);
   for (let i = 0; i < N; i++) if (cls[i] < C) count[cls[i]]++;
-  const mean = new Float32Array(C); // средняя частота по классам нейронов на текущем кадре
+  const mean = new Float32Array(C); // mean rate per neuron class on the current frame
   const frame = (q, o, t) => ((q * K + o) * T + t) * N;
 
-  /** target: [вопрос, вариант, шаг] (шаг дробный, соседние кадры смешиваются) или null — затухание.
-   *  Возвращает число активных нейронов. */
+  /** target: [question, option, step] (the step is fractional, neighbouring frames are blended) or null — fade out.
+   *  Returns the number of active neurons. */
   function update(target) {
     const g = glow.array;
     let active = 0;
@@ -76,7 +76,7 @@ export function brainCloud({ brain, run, N, pos, cls, A }, { unit = 1, base = 0.
       const a0 = frame(q, o, t0), a1 = frame(q, o, t1);
       for (let i = 0; i < N; i++) {
         const v = (A[a0 + i] * (1 - f) + A[a1 + i] * f) / 255;
-        g[i] = v > g[i] ? v : g[i] * 0.88 + v * 0.12; // послесвечение
+        g[i] = v > g[i] ? v : g[i] * 0.88 + v * 0.12; // afterglow
         if (v > 0.1) active++;
         if (cls[i] < C) mean[cls[i]] += v;
       }
@@ -88,7 +88,7 @@ export function brainCloud({ brain, run, N, pos, cls, A }, { unit = 1, base = 0.
   return { points: new THREE.Points(geom, material), material, update, mean, clear: () => glow.array.fill(0) };
 }
 
-/** Расписание показа: муха по очереди нюхает каждый вариант, пауза, показ выбора, следующий вопрос. */
+/** Playback schedule: the fly sniffs every option in turn, a pause, the choice is shown, next question. */
 export class Player {
   constructor(run, { speed = 6, gap = 0.9, reveal = 5, q = 0 } = {}) {
     Object.assign(this, { run, speed, gap, reveal, paused: false });
@@ -99,7 +99,7 @@ export class Player {
 
   go(qi) {
     Object.assign(this, { qi, k: 0, s: 0, phase: "sniff", timer: 0, changed: true });
-    // шкала полос: от минимума до максимума «притяжения» после того, как пришёл запах ответа
+    // bar scale: from the minimum to the maximum "attraction" after the answer's odour has arrived
     const after = this.item.live.flatMap((row) => row.slice(this.run.answerAt));
     this.lo = Math.min(...after);
     this.hi = Math.max(...after);
@@ -123,14 +123,14 @@ export class Player {
     } else if ((this.timer += dt) > this.reveal) this.next(1);
   }
 
-  /** Что сейчас показывать мозгу: [вопрос, вариант, шаг] или null — затухание между вариантами. */
+  /** What the brain should show now: [question, option, step] or null — fade out between options. */
   target() {
     if (this.phase === "sniff") return [this.qi, this.k, this.s];
     if (this.phase === "reveal") return [this.qi, this.item.chosen, this.run.steps - 1];
     return null;
   }
 
-  /** «Притяжение» варианта i в [0, 1] на текущий момент. */
+  /** "Attraction" of option i in [0, 1] at the current moment. */
   bar(i) {
     const step = i < this.k ? this.run.steps - 1 : i === this.k ? Math.floor(this.s) : -1;
     if (step < this.run.answerAt) return 0;

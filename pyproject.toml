@@ -21,7 +21,7 @@ fly-export-viz = "fly.viz.export:main"
 fly-plot-matrix = "fly.viz.matrix:main"
 
 [dependency-groups]
-# ty в альфе: без пина новая версия может уронить CI на ровном месте
+# ty is in alpha: without a pin a new release can break CI out of the blue
 dev = ["pytest>=8", "pytest-cov>=6", "ruff>=0.9", "ty==0.0.81", "pre-commit>=4"]
 
 [build-system]
@@ -32,12 +32,12 @@ build-backend = "uv_build"
 module-name = "fly"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "src"]  # в src — примеры из докстрингов
+testpaths = ["tests", "src"]  # src holds the docstring examples
 addopts = "--doctest-modules --cov=fly --cov-report=term-missing"
 
 [tool.coverage.report]
-fail_under = 100  # это число показывает бейдж coverage в README; ниже — тесты падают
-# main() — это запуск обучения на настоящем коннектоме с MLflow: часы на GPU, а не юнит-тест
+fail_under = 100  # the README coverage badge shows this number; below it the tests fail
+# main() launches training on the real connectome with MLflow: hours of GPU time, not a unit test
 exclude_also = ["def main\\(", "if __name__ == .__main__.:"]
 
 [tool.ruff]
@@ -46,7 +46,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
-ignore = ["B905"]  # zip без strict= — в коде списки одной длины по построению
+ignore = ["B905"]  # zip without strict= — the lists are the same length by construction
 
 [tool.ty.src]
 include = ["src", "tests"]

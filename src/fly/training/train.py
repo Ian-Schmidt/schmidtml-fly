@@ -2,9 +2,9 @@
 
     uv run fly-train --task quiz                      # level 1: quizzes
     uv run fly-train --task interview --init runs/quiz/brain.pt   # level 2
-    uv run fly-train --task quiz --seed 1             # repeat with another seed → runs/quiz-s1
+    uv run fly-train --task quiz --seed 1             # repeat with another seed -> runs/quiz-s1
     uv run fly-train --task quiz --senses smell,sight # question as an odour, answer option "through the eyes"
-    uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5050   # experiments → http://127.0.0.1:5050
+    uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5050   # experiments -> http://127.0.0.1:5050
 
 Every launch is a run in the MLflow experiment "schmidtml-fly": parameters (arguments, model constants,
 data fingerprint), per-batch and per-epoch metrics, traces of the stages (setup, every epoch, saving),
@@ -33,8 +33,8 @@ from fly.utils.paths import PACKAGE, RUNS
 from fly.utils.tracking import EXPERIMENT, TRACKING, stage
 
 _CFG = load("training")
-DEFAULTS = _CFG["train"]  # значения аргументов fly-train по умолчанию
-PROBE: int = _CFG["probe"]  # на скольких экзаменационных вопросах после каждой эпохи снимаем активность мозга
+DEFAULTS = _CFG["train"]  # default values of the fly-train arguments
+PROBE: int = _CFG["probe"]  # how many exam questions we probe brain activity on after every epoch
 
 
 def main() -> None:
@@ -98,7 +98,7 @@ def main() -> None:
             "trainable": trainable, "gain": brain.gain, "alpha": fly.ALPHA,
             "steps": fly.STEPS, "answer_at": fly.ANSWER_AT, "read_last": fly.READ_LAST,
         })
-        # ty пока выводит у TypedDict.items() значения как object, хотя все поля — float
+        # ty still infers TypedDict.items() values as object although every field is a float
         mlflow.log_metrics({f"reference/{k}": v for k, v in ref.items()}, step=0)  # ty: ignore[invalid-argument-type]
         cls = torch.tensor(fly.classify(ann), device=dev)
         q, a, t = q.to(dev), a.to(dev), t.to(dev)
@@ -115,7 +115,7 @@ def main() -> None:
                         loss = F.cross_entropy(scores, t[b])
                         opt.zero_grad()
                         loss.backward()
-                        # норму градиента только измеряем: порог бесконечный, клиппинга нет
+                        # the gradient norm is only measured: the threshold is infinite, there is no clipping
                         grads.append(torch.nn.utils.clip_grad_norm_(brain.parameters(), float("inf")).item())
                         opt.step()
                         step += 1
@@ -160,15 +160,15 @@ def main() -> None:
                 mlflow.log_artifact(str(out / "history.json"))
                 mlflow.log_artifact(str(out / "brain.pt"))
             with stage("log_model", format="pickle", code_paths=["fly/"]) as span:
-                # pickle, а не pt2: torch.export не трассирует 32 шага с разреженной матрицей.
-                # пакет fly кладётся рядом с моделью, поэтому она грузится и без этого репозитория.
+                # pickle rather than pt2: torch.export cannot trace 32 steps with a sparse matrix.
+                # the fly package is stored next to the model, so it loads without this repository too.
                 info = mlflow.pytorch.log_model(
                     brain.cpu(), name="model", serialization_format="pickle", code_paths=[str(PACKAGE)],
                     registered_model_name=registry, step=args.epochs)
                 span.set_outputs({"model_uri": info.model_uri, "version": info.registered_model_version})
             registered = f"{registry} v{info.registered_model_version}"
             root.set_outputs({"model_uri": info.model_uri, "registered": registered})
-        print(f"модель: {info.model_uri} → реестр {registry}, версия {info.registered_model_version}")
+        print(f"модель: {info.model_uri} -> реестр {registry}, версия {info.registered_model_version}")
 
 
 if __name__ == "__main__":
